@@ -62,10 +62,12 @@ function ProviderLogo({ provider }: { provider?: string }) {
   if (!brand || failed) return <Cube size={14} aria-hidden="true" />;
 
   return (
-    <picture className="provider-logo" aria-hidden="true">
-      {brand.darkLogo ? <source media="(prefers-color-scheme: dark)" srcSet={brand.darkLogo} /> : null}
-      <img src={brand.lightLogo} alt="" onError={() => setFailed(true)} />
-    </picture>
+    <span className={`provider-logo ${brand.darkLogo ? "has-dark-logo" : ""}`} aria-hidden="true">
+      <img className="provider-logo-light" src={brand.lightLogo} alt="" onError={() => setFailed(true)} />
+      {brand.darkLogo ? (
+        <img className="provider-logo-dark" src={brand.darkLogo} alt="" onError={() => setFailed(true)} />
+      ) : null}
+    </span>
   );
 }
 

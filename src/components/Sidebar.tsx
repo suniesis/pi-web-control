@@ -2,6 +2,7 @@ import {
   ArrowRight,
   ArrowsClockwise,
   FolderSimple,
+  GearSix,
   Plus,
   X,
 } from "@phosphor-icons/react";
@@ -22,6 +23,7 @@ interface SidebarProps {
   onSelectSession: (session: SessionSummary) => void;
   onNewSession: () => void;
   onRestart: () => void;
+  onOpenSettings: () => void;
   onAddWorkspace: (path: string) => void;
   onSelectWorkspace: (path: string) => void;
 }
@@ -46,6 +48,7 @@ export function Sidebar({
   onSelectSession,
   onNewSession,
   onRestart,
+  onOpenSettings,
   onAddWorkspace,
   onSelectWorkspace,
 }: SidebarProps) {
@@ -78,7 +81,7 @@ export function Sidebar({
           </button>
         </div>
 
-        <nav className="sidebar-actions" aria-label="Session actions">
+        <nav className="sidebar-actions" aria-label="App actions">
           <button type="button" onClick={onNewSession} disabled={bridgeStatus !== "running"}>
             <Plus size={16} />
             New session
@@ -86,6 +89,10 @@ export function Sidebar({
           <button type="button" onClick={onRestart} disabled={connectionStatus !== "open"}>
             <ArrowsClockwise size={16} />
             Restart Pi
+          </button>
+          <button type="button" onClick={onOpenSettings}>
+            <GearSix size={16} />
+            Settings
           </button>
         </nav>
 

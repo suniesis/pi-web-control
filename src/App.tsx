@@ -3,10 +3,20 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Composer } from "./components/Composer";
 import { ExtensionDialog } from "./components/ExtensionDialog";
 import { MessageView } from "./components/MessageView";
+import { SettingsDialog } from "./components/SettingsDialog";
 import { Sidebar } from "./components/Sidebar";
 import { ToolRunView } from "./components/ToolRunView";
 import { ToolWorkSummary } from "./components/ToolWorkSummary";
 import { messageKey } from "./lib/content";
+import {
+  applyTheme,
+  getInitialAppearance,
+  getInitialTheme,
+  saveAppearance,
+  saveTheme,
+  type Appearance,
+  type ThemeId,
+} from "./lib/appearance";
 import { usePiSocket } from "./lib/use-pi-socket";
 import type {
   AgentMessage,
@@ -262,6 +272,9 @@ export function App() {
   const [extensionRequest, setExtensionRequest] = useState<ExtensionRequest | null>(null);
   const [notice, setNotice] = useState<Notice | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [appearance, setAppearance] = useState<Appearance>(getInitialAppearance);
+  const [themeId, setThemeId] = useState<ThemeId>(getInitialTheme);
   const [authRequired, setAuthRequired] = useState(false);
   const [authenticated, setAuthenticated] = useState(false);
   const [token, setToken] = useState("");
@@ -269,6 +282,12 @@ export function App() {
   const [syncRevision, setSyncRevision] = useState(0);
   const [fullSyncRevision, setFullSyncRevision] = useState(0);
   const feedRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    applyTheme(themeId, appearance);
+    saveAppearance(appearance);
+    saveTheme(themeId);
+  }, [appearance, themeId]);
 
   const onEvent = useCallback((event: ServerEvent) => {
     if (event.type === "bridge_auth_required") {
@@ -548,6 +567,10 @@ export function App() {
         }}
         onNewSession={() => send({ id: crypto.randomUUID(), type: "new_session" })}
         onRestart={() => send({ id: crypto.randomUUID(), type: "bridge.restart" })}
+        onOpenSettings={() => {
+          setSidebarOpen(false);
+          setSettingsOpen(true);
+        }}
         onAddWorkspace={selectWorkspace}
         onSelectWorkspace={selectWorkspace}
       />
@@ -681,6 +704,16 @@ export function App() {
             send(response);
             setExtensionRequest(null);
           }}
+        />
+      ) : null}
+
+      {settingsOpen ? (
+        <SettingsDialog
+          appearance={appearance}
+          themeId={themeId}
+          onAppearanceChange={setAppearance}
+          onThemeChange={setThemeId}
+          onClose={() => setSettingsOpen(false)}
         />
       ) : null}
 

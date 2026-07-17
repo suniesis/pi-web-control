@@ -195,6 +195,31 @@ export function Composer({
         }}
         onDrop={handleDrop}
       >
+        {attachments.length > 0 ? (
+          <div className="composer-attachments" aria-label="Attached files">
+            {attachments.map((attachment) => (
+              <div className={`composer-attachment composer-attachment-${attachment.kind}`} key={attachment.id}>
+                {attachment.previewUrl ? (
+                  <img src={attachment.previewUrl} alt={attachment.name} />
+                ) : (
+                  <>
+                    <span className="composer-file-icon" aria-hidden="true">
+                      <File size={16} />
+                    </span>
+                    <span className="composer-attachment-name" title={attachment.name}>{attachment.name}</span>
+                  </>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setAttachments((current) => current.filter((item) => item.id !== attachment.id))}
+                  aria-label={`Remove ${attachment.name}`}
+                >
+                  <X size={12} weight="bold" />
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : null}
         <label className="sr-only" htmlFor="prompt">
           Message Pi
         </label>
@@ -213,29 +238,6 @@ export function Composer({
           onKeyDown={handleKeyDown}
           onPaste={handlePaste}
         />
-        {attachments.length > 0 ? (
-          <div className="composer-attachments" aria-label="Attached files">
-            {attachments.map((attachment) => (
-              <div className={`composer-attachment composer-attachment-${attachment.kind}`} key={attachment.id}>
-                {attachment.previewUrl ? (
-                  <img src={attachment.previewUrl} alt="" />
-                ) : (
-                  <span className="composer-file-icon" aria-hidden="true">
-                    <File size={16} />
-                  </span>
-                )}
-                <span className="composer-attachment-name" title={attachment.name}>{attachment.name}</span>
-                <button
-                  type="button"
-                  onClick={() => setAttachments((current) => current.filter((item) => item.id !== attachment.id))}
-                  aria-label={`Remove ${attachment.name}`}
-                >
-                  <X size={12} weight="bold" />
-                </button>
-              </div>
-            ))}
-          </div>
-        ) : null}
         {attachmentError ? <div className="composer-attachment-error" role="status">{attachmentError}</div> : null}
         <div className="composer-actions">
           <div className="composer-controls">
