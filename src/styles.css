@@ -2370,3 +2370,9 @@ button:active:not(:disabled) {
   }
 
 }
+
+@media (max-width: 860px), (hover: none) and (pointer: coarse) {
+  .composer textarea {
+    font-size: 16px;
+  }
+}
