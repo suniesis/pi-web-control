@@ -1,5 +1,4 @@
 import {
-  ArrowRight,
   ArrowsClockwise,
   CaretRight,
   CircleNotch,
@@ -8,7 +7,7 @@ import {
   Plus,
   X,
 } from "@phosphor-icons/react";
-import { type FormEvent, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { relativeSessionTime, sessionTitle } from "../lib/sessions";
 import type { ConnectionStatus, RpcState, RuntimeSnapshot, SessionSummary } from "../types";
 import { PiLogo } from "./PiLogo";
@@ -24,13 +23,14 @@ type SidebarProps = {
   sessionsByWorkspace: Record<string, SessionSummary[]>;
   sessionListsLoading: string[];
   openingSessionPath?: string;
+  workspacePickerOpen: boolean;
   onClose: () => void;
   onSelectSession: (workspace: string, session: SessionSummary) => void;
   onSelectRuntime: (runtimeId: string) => void;
   onNewSession: (workspace?: string) => void;
   onRestart: () => void;
   onOpenSettings: () => void;
-  onAddWorkspace: (path: string) => void;
+  onOpenWorkspacePicker: () => void;
   onToggleWorkspace: (path: string) => void;
 };
 
@@ -69,17 +69,16 @@ export function Sidebar({
   sessionsByWorkspace,
   sessionListsLoading,
   openingSessionPath,
+  workspacePickerOpen,
   onClose,
   onSelectSession,
   onSelectRuntime,
   onNewSession,
   onRestart,
   onOpenSettings,
-  onAddWorkspace,
+  onOpenWorkspacePicker,
   onToggleWorkspace,
 }: SidebarProps) {
-  const [addingWorkspace, setAddingWorkspace] = useState(false);
-  const [workspacePath, setWorkspacePath] = useState("");
   const [expandedWorkspaces, setExpandedWorkspaces] = useState<Set<string>>(() => new Set());
   const [showAllSessions, setShowAllSessions] = useState<Set<string>>(() => new Set());
   const workspaceControlsDisabled = connectionStatus !== "open";
@@ -97,15 +96,6 @@ export function Sidebar({
     });
     onToggleWorkspace(workspace);
   }, [onToggleWorkspace, workspace]);
-
-  function submitWorkspace(event: FormEvent<HTMLFormElement>): void {
-    event.preventDefault();
-    const path = workspacePath.trim();
-    if (!path || workspaceControlsDisabled) return;
-    onAddWorkspace(path);
-    setWorkspacePath("");
-    setAddingWorkspace(false);
-  }
 
   function toggleWorkspace(path: string): void {
     const expanding = !expandedWorkspaces.has(path);
@@ -152,37 +142,14 @@ export function Sidebar({
                 type="button"
                 disabled={workspaceControlsDisabled}
                 aria-label="Add workspace"
-                aria-expanded={addingWorkspace}
-                onClick={() => setAddingWorkspace((current) => !current)}
+                aria-haspopup="dialog"
+                aria-expanded={workspacePickerOpen}
+                onClick={onOpenWorkspacePicker}
               >
                 <Plus size={13} />
               </button>
             </div>
           </div>
-          {addingWorkspace ? (
-            <form className="workspace-add-form" onSubmit={submitWorkspace}>
-              <FolderSimple size={14} aria-hidden="true" />
-              <label className="sr-only" htmlFor="workspace-path">Workspace path</label>
-              <input
-                id="workspace-path"
-                type="text"
-                value={workspacePath}
-                placeholder="~/Dev/project"
-                autoComplete="off"
-                spellCheck={false}
-                autoFocus
-                onChange={(event) => setWorkspacePath(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key !== "Escape") return;
-                  setWorkspacePath("");
-                  setAddingWorkspace(false);
-                }}
-              />
-              <button type="submit" disabled={!workspacePath.trim()} aria-label="Add workspace">
-                <ArrowRight size={13} weight="bold" />
-              </button>
-            </form>
-          ) : null}
           <div className="workspace-list">
             {sortedWorkspaces.map((path) => {
               const activeWorkspace = path === workspace;

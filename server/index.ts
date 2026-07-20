@@ -1,7 +1,7 @@
 import { createHash, timingSafeEqual } from "node:crypto";
-import { mkdir, realpath, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, readdir, realpath, rm, stat, writeFile } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
-import { basename, extname, isAbsolute, resolve, sep } from "node:path";
+import { basename, dirname, extname, isAbsolute, resolve, sep } from "node:path";
 import { SessionManager } from "@earendil-works/pi-coding-agent";
 import type { ServerWebSocket } from "bun";
 import { loadConfig } from "./config";
@@ -237,6 +237,39 @@ async function resolveWorkspacePath(value: unknown): Promise<string> {
   return canonical;
 }
 
+async function listDirectories(value: unknown): Promise<JsonObject> {
+  const path = value === undefined ? await realpath(homedir()) : await resolveWorkspacePath(value);
+  let entries;
+  try {
+    entries = await readdir(path, { withFileTypes: true });
+  } catch (error) {
+    throw new Error(`Could not read directory: ${error instanceof Error ? error.message : String(error)}`);
+  }
+
+  const visibleEntries = entries.filter((entry) => !entry.name.startsWith("."));
+  const directories = (await Promise.all(visibleEntries.map(async (entry) => {
+    const entryPath = resolve(path, entry.name);
+    if (entry.isDirectory()) return { name: entry.name, path: entryPath };
+    if (!entry.isSymbolicLink()) return null;
+    try {
+      return (await stat(entryPath)).isDirectory() ? { name: entry.name, path: entryPath } : null;
+    } catch {
+      return null;
+    }
+  })))
+    .filter((entry): entry is { name: string; path: string } => entry !== null)
+    .sort((left, right) => left.name.localeCompare(right.name, undefined, { numeric: true, sensitivity: "base" }));
+
+  const parent = dirname(path);
+  const limit = 500;
+  return {
+    path,
+    ...(parent !== path ? { parent } : {}),
+    directories: directories.slice(0, limit),
+    truncated: directories.length > limit,
+  };
+}
+
 const runtimes = new RuntimeManager(config, (message) => {
   if (message.type === "runtime_event") {
     broadcast({ ...message, event: sanitizePiMessage(message.event) });
@@ -386,6 +419,17 @@ const server = Bun.serve<SocketData>({
         }
         if (message.type === "bridge.list_runtimes") {
           send(socket, { type: "bridge_response", command: "list_runtimes", requestId, success: true, data: { runtimes: runtimes.list() } });
+          return;
+        }
+        if (message.type === "bridge.list_directories") {
+          const listing = await listDirectories(message.path);
+          send(socket, {
+            type: "bridge_response",
+            command: "list_directories",
+            requestId,
+            success: true,
+            data: listing,
+          });
           return;
         }
         if (message.type === "bridge.list_sessions") {

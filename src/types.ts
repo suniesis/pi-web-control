@@ -122,6 +122,18 @@ export interface SessionSummary {
   firstMessage: string;
 }
 
+export interface DirectorySummary {
+  name: string;
+  path: string;
+}
+
+export interface DirectoryListing {
+  path: string;
+  parent?: string;
+  directories: DirectorySummary[];
+  truncated?: boolean;
+}
+
 export interface ToolRun {
   id: string;
   name: string;

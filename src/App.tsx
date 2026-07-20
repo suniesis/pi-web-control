@@ -8,6 +8,7 @@ import { SettingsDialog } from "./components/SettingsDialog";
 import { Sidebar } from "./components/Sidebar";
 import { ToolRunView } from "./components/ToolRunView";
 import { ToolWorkSummary } from "./components/ToolWorkSummary";
+import { WorkspacePicker } from "./components/WorkspacePicker";
 import { messageKey } from "./lib/content";
 import {
   applyTheme,
@@ -22,6 +23,7 @@ import { usePiSocket } from "./lib/use-pi-socket";
 import type {
   AgentMessage,
   BridgeStatus,
+  DirectoryListing,
   ExtensionRequest,
   ModelInfo,
   PromptSubmission,
@@ -87,6 +89,16 @@ function isModelInfo(value: unknown): value is ModelInfo {
 function isSessionSummary(value: unknown): value is SessionSummary {
   return typeof value === "object" && value !== null &&
     "path" in value && typeof value.path === "string";
+}
+
+function isDirectoryListing(value: unknown): value is DirectoryListing {
+  return typeof value === "object" && value !== null &&
+    "path" in value && typeof value.path === "string" &&
+    "directories" in value && Array.isArray(value.directories) &&
+    value.directories.every((directory) =>
+      typeof directory === "object" && directory !== null &&
+      "name" in directory && typeof directory.name === "string" &&
+      "path" in directory && typeof directory.path === "string");
 }
 
 function isRuntimeSnapshot(value: unknown): value is RuntimeSnapshot {
@@ -309,6 +321,10 @@ export function App() {
   const [notice, setNotice] = useState<Notice | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [desktopSidebarHidden, setDesktopSidebarHidden] = useState(false);
+  const [workspacePickerOpen, setWorkspacePickerOpen] = useState(false);
+  const [directoryListing, setDirectoryListing] = useState<DirectoryListing | null>(null);
+  const [directoryLoading, setDirectoryLoading] = useState(false);
+  const [directoryError, setDirectoryError] = useState<string>();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [appearance, setAppearance] = useState<Appearance>(getInitialAppearance);
   const [themeId, setThemeId] = useState<ThemeId>(getInitialTheme);
@@ -324,6 +340,7 @@ export function App() {
   const sessionCacheRef = useRef<Record<string, SessionSummary[]>>({});
   const sessionLoadingRef = useRef(new Set<string>());
   const sessionRequestWorkspacesRef = useRef(new Map<string, string>());
+  const directoryRequestIdRef = useRef<string | undefined>(undefined);
   const awaitingSessionMessagesRef = useRef(false);
   const scrollToBottomRef = useRef(false);
 
@@ -457,6 +474,23 @@ export function App() {
       return;
     }
     if (event.type === "bridge_response") {
+      if (event.command === "list_directories") {
+        const requestId = eventString(event, "requestId");
+        if (!requestId || requestId !== directoryRequestIdRef.current) return;
+        directoryRequestIdRef.current = undefined;
+        setDirectoryLoading(false);
+        if (event.success === false) {
+          setDirectoryError(eventString(event, "error") ?? "Could not load directories");
+          return;
+        }
+        if (!isDirectoryListing(event.data)) {
+          setDirectoryError("The bridge returned an invalid directory listing");
+          return;
+        }
+        setDirectoryListing(event.data);
+        setDirectoryError(undefined);
+        return;
+      }
       if (event.command === "create_runtime" || event.command === "open_session") {
         if (event.success === false) {
           setPendingSession(null);
@@ -673,6 +707,18 @@ export function App() {
     }
   }, [send]);
 
+  const requestDirectoryListing = useCallback((path?: string): void => {
+    const requestId = `directories-${crypto.randomUUID()}`;
+    directoryRequestIdRef.current = requestId;
+    setDirectoryLoading(true);
+    setDirectoryError(undefined);
+    if (!send({ id: requestId, type: "bridge.list_directories", ...(path ? { path } : {}) })) {
+      directoryRequestIdRef.current = undefined;
+      setDirectoryLoading(false);
+      setDirectoryError("Bridge disconnected before directories could load");
+    }
+  }, [send]);
+
   useEffect(() => {
     if (!authRequired || connectionStatus !== "open" || authenticated) return;
     const storedToken = sessionStorage.getItem("pi-web-token");
@@ -693,7 +739,10 @@ export function App() {
     awaitingSessionMessagesRef.current = false;
     sessionLoadingRef.current.clear();
     sessionRequestWorkspacesRef.current.clear();
+    directoryRequestIdRef.current = undefined;
     setSessionListsLoading([]);
+    setDirectoryLoading(false);
+    setWorkspacePickerOpen(false);
   }, [connectionStatus]);
 
   useEffect(() => {
@@ -807,6 +856,23 @@ export function App() {
     }
   }
 
+  function openWorkspacePicker(): void {
+    setWorkspacePickerOpen(true);
+    setDirectoryListing(null);
+    requestDirectoryListing();
+  }
+
+  function closeWorkspacePicker(): void {
+    directoryRequestIdRef.current = undefined;
+    setDirectoryLoading(false);
+    setWorkspacePickerOpen(false);
+  }
+
+  function selectWorkspace(path: string): void {
+    closeWorkspacePicker();
+    requestWorkspaceSessions(path, true);
+  }
+
   const canSend = connectionStatus === "open" && authenticated && bridge.status === "running";
   const showEmptyState = timeline.length === 0 && !awaitingAssistant;
   const contextPercent = stats?.contextUsage?.percent;
@@ -837,6 +903,7 @@ export function App() {
         sessionsByWorkspace={sessionsByWorkspace}
         sessionListsLoading={sessionListsLoading}
         openingSessionPath={pendingSession?.session.path}
+        workspacePickerOpen={workspacePickerOpen}
         onClose={closeSidebar}
         onSelectSession={(workspace, session) => {
           setSidebarOpen(false);
@@ -852,7 +919,7 @@ export function App() {
           setSidebarOpen(false);
           setSettingsOpen(true);
         }}
-        onAddWorkspace={requestWorkspaceSessions}
+        onOpenWorkspacePicker={openWorkspacePicker}
         onToggleWorkspace={requestWorkspaceSessions}
       />
 
@@ -1023,6 +1090,17 @@ export function App() {
             sendRuntime({ ...response });
             setExtensionRequest(null);
           }}
+        />
+      ) : null}
+
+      {workspacePickerOpen ? (
+        <WorkspacePicker
+          listing={directoryListing}
+          loading={directoryLoading}
+          error={directoryError}
+          onNavigate={requestDirectoryListing}
+          onSelect={selectWorkspace}
+          onClose={closeWorkspacePicker}
         />
       ) : null}
 
