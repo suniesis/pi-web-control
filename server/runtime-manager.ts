@@ -95,6 +95,9 @@ export class RuntimeManager {
         status: "error",
         isStreaming: false,
         pid: undefined,
+        activity: undefined,
+        needsInput: false,
+        pendingUiRequest: undefined,
         error: error instanceof Error ? error.message : String(error),
       };
       this.publish(runtime);
@@ -118,6 +121,18 @@ export class RuntimeManager {
   async restart(runtimeId: string): Promise<RuntimeSnapshot> {
     const runtime = this.require(runtimeId);
     const sessionPath = runtime.snapshot.sessionFile ?? runtime.targetSessionPath;
+    runtime.snapshot = {
+      ...runtime.snapshot,
+      status: "starting",
+      isStreaming: false,
+      pid: undefined,
+      activity: undefined,
+      needsInput: false,
+      pendingUiRequest: undefined,
+      error: undefined,
+    };
+    this.publish(runtime);
+
     try {
       await runtime.pi.restart();
       if (sessionPath) {
@@ -133,6 +148,9 @@ export class RuntimeManager {
         status: "error",
         isStreaming: false,
         pid: undefined,
+        activity: undefined,
+        needsInput: false,
+        pendingUiRequest: undefined,
         error: error instanceof Error ? error.message : String(error),
       };
       this.publish(runtime);
@@ -167,11 +185,17 @@ export class RuntimeManager {
 
     switch (event.type) {
       case "bridge_status": {
+        const status = typeof event.status === "string"
+          ? event.status as PiBridgeStatus
+          : runtime.snapshot.status;
         runtime.snapshot = {
           ...runtime.snapshot,
-          status: typeof event.status === "string" ? event.status as PiBridgeStatus : runtime.snapshot.status,
+          status,
           pid: typeof event.pid === "number" ? event.pid : undefined,
           error: typeof event.message === "string" ? event.message : undefined,
+          ...(status !== "running"
+            ? { isStreaming: false, activity: undefined, needsInput: false, pendingUiRequest: undefined }
+            : {}),
         };
         changed = true;
         break;

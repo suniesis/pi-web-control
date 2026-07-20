@@ -322,7 +322,12 @@ const server = Bun.serve<SocketData>({
     const url = new URL(request.url);
 
     if (url.pathname === "/api/health") {
-      return json({ ok: true, runtimes: runtimes.list(), authenticationRequired: Boolean(config.token) });
+      return json({
+        ok: true,
+        defaultWorkspace: config.workspace,
+        runtimes: runtimes.list(),
+        authenticationRequired: Boolean(config.token),
+      });
     }
 
     if (url.pathname === "/ws") {
@@ -342,7 +347,7 @@ const server = Bun.serve<SocketData>({
     open(socket) {
       clients.add(socket);
       if (socket.data.authenticated) {
-        send(socket, { type: "bridge_snapshot", runtimes: runtimes.list() });
+        send(socket, { type: "bridge_snapshot", defaultWorkspace: config.workspace, runtimes: runtimes.list() });
       } else {
         send(socket, { type: "bridge_auth_required" });
       }
@@ -365,7 +370,7 @@ const server = Bun.serve<SocketData>({
         if (message.type === "bridge.auth" && matchesToken(message.token)) {
           socket.data.authenticated = true;
           send(socket, { type: "bridge_auth_ok" });
-          send(socket, { type: "bridge_snapshot", runtimes: runtimes.list() });
+          send(socket, { type: "bridge_snapshot", defaultWorkspace: config.workspace, runtimes: runtimes.list() });
         } else {
           send(socket, { type: "bridge_auth_error", message: "Invalid access token" });
           socket.close(4003, "Authentication failed");

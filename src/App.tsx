@@ -341,24 +341,44 @@ export function App() {
 
     if (incomingEvent.type === "bridge_snapshot") {
       setAuthenticated(true);
+      const defaultWorkspace = eventString(incomingEvent, "defaultWorkspace");
       const runtimeList = Array.isArray(incomingEvent.runtimes)
         ? incomingEvent.runtimes.filter(isRuntimeSnapshot)
         : [];
       const nextRuntimes = Object.fromEntries(runtimeList.map((runtime) => [runtime.id, runtime]));
       setRuntimes(nextRuntimes);
       runtimesRef.current = nextRuntimes;
-      for (const runtime of runtimeList) {
-        setWorkspaces((current) => rememberWorkspace(current, runtime.workspace));
-      }
-      const active = activeRuntimeIdRef.current && nextRuntimes[activeRuntimeIdRef.current]
-        ? nextRuntimes[activeRuntimeIdRef.current]
+      setWorkspaces((current) => {
+        let next = defaultWorkspace ? rememberWorkspace(current, defaultWorkspace) : current;
+        for (const runtime of runtimeList) next = rememberWorkspace(next, runtime.workspace);
+        return next;
+      });
+
+      const previousActiveId = activeRuntimeIdRef.current;
+      const active = previousActiveId && nextRuntimes[previousActiveId]
+        ? nextRuntimes[previousActiveId]
         : runtimeList[0];
       if (active) {
         activeRuntimeIdRef.current = active.id;
         setActiveRuntimeId(active.id);
         setBridge(active);
         setExtensionRequest(isExtensionRequest(active.pendingUiRequest) ? active.pendingUiRequest : null);
+        if (active.id !== previousActiveId) {
+          setTimeline([]);
+          setAwaitingAssistant(active.isStreaming);
+          setRpcState(null);
+          setStats(null);
+        }
         setFullSyncRevision((value) => value + 1);
+      } else {
+        activeRuntimeIdRef.current = undefined;
+        setActiveRuntimeId(undefined);
+        setBridge({ status: "stopped", workspace: defaultWorkspace });
+        setTimeline([]);
+        setAwaitingAssistant(false);
+        setRpcState(null);
+        setStats(null);
+        setExtensionRequest(null);
       }
       return;
     }
@@ -777,6 +797,15 @@ export function App() {
     send({ id: crypto.randomUUID(), type: "bridge.create_runtime", workspace });
   }
 
+  function startPi(): void {
+    const runtimeId = activeRuntimeIdRef.current;
+    if (runtimeId) {
+      send({ id: crypto.randomUUID(), type: "bridge.restart_runtime", runtimeId });
+    } else {
+      createSession();
+    }
+  }
+
   const canSend = connectionStatus === "open" && authenticated && bridge.status === "running";
   const contextPercent = stats?.contextUsage?.percent;
   const contextLabel = contextPercent === null || contextPercent === undefined
@@ -816,7 +845,7 @@ export function App() {
           activateRuntime(runtimeId);
         }}
         onNewSession={createSession}
-        onRestart={() => activeRuntimeId && send({ id: crypto.randomUUID(), type: "bridge.restart_runtime", runtimeId: activeRuntimeId })}
+        onRestart={startPi}
         onOpenSettings={() => {
           setSidebarOpen(false);
           setSettingsOpen(true);
@@ -876,7 +905,7 @@ export function App() {
                 <h1>Let&apos;s lock in.</h1>
                 <p>What are we doing here?</p>
                 {bridge.status !== "running" ? (
-                  <button className="primary-button" type="button" onClick={() => activeRuntimeId && send({ id: crypto.randomUUID(), type: "bridge.restart_runtime", runtimeId: activeRuntimeId })}>
+                  <button className="primary-button" type="button" onClick={startPi}>
                     <Play size={16} weight="fill" />
                     Start Pi
                   </button>

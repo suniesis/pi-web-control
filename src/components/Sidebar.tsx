@@ -39,6 +39,8 @@ function basename(path?: string): string {
 }
 
 function RuntimeIndicator({ runtime }: { runtime: RuntimeSnapshot }) {
+  if (runtime.status === "error") return <span className="runtime-status runtime-status-error">Failed</span>;
+  if (runtime.status === "stopped") return <span className="runtime-status">Stopped</span>;
   if (runtime.needsInput) return <span className="runtime-status needs-input">Needs input</span>;
   if (runtime.status === "starting" || runtime.isStreaming) {
     return (
@@ -49,8 +51,6 @@ function RuntimeIndicator({ runtime }: { runtime: RuntimeSnapshot }) {
       />
     );
   }
-  if (runtime.status === "error") return <span className="runtime-status runtime-status-error">Failed</span>;
-  if (runtime.status === "stopped") return <span className="runtime-status">Stopped</span>;
   return null;
 }
 
@@ -144,7 +144,7 @@ export function Sidebar({
           </button>
           <button type="button" onClick={onRestart} disabled={connectionStatus !== "open"}>
             <ArrowsClockwise size={16} />
-            Restart Pi
+            {activeRuntimeId ? "Restart Pi" : "Start Pi"}
           </button>
           <button type="button" onClick={onOpenSettings}>
             <GearSix size={16} />
