@@ -11,6 +11,7 @@ import {
 import { type FormEvent, useEffect, useMemo, useState } from "react";
 import { relativeSessionTime, sessionTitle } from "../lib/sessions";
 import type { ConnectionStatus, RpcState, RuntimeSnapshot, SessionSummary } from "../types";
+import { PiLogo } from "./PiLogo";
 
 type SidebarProps = {
   open: boolean;
@@ -131,26 +132,16 @@ export function Sidebar({
       <button className={`sidebar-backdrop ${open ? "visible" : ""}`} type="button" onClick={onClose} aria-label="Close sidebar" />
       <aside id="app-sidebar" className={`sidebar ${open ? "open" : ""}`}>
         <div className="sidebar-close-row">
-          <strong className="sidebar-title">Pi Control</strong>
+          <div className="sidebar-brand">
+            <span className="sidebar-logo" aria-hidden="true">
+              <PiLogo />
+            </span>
+            <strong className="sidebar-title">Pi Control</strong>
+          </div>
           <button className="icon-button sidebar-close" type="button" onClick={onClose} aria-label="Close sidebar">
             <X size={18} />
           </button>
         </div>
-
-        <nav className="sidebar-actions" aria-label="App actions">
-          <button type="button" onClick={() => onNewSession()} disabled={connectionStatus !== "open"}>
-            <Plus size={16} />
-            New session
-          </button>
-          <button type="button" onClick={onRestart} disabled={connectionStatus !== "open"}>
-            <ArrowsClockwise size={16} />
-            {activeRuntimeId ? "Restart Pi" : "Start Pi"}
-          </button>
-          <button type="button" onClick={onOpenSettings}>
-            <GearSix size={16} />
-            Settings
-          </button>
-        </nav>
 
         <section className="sidebar-tree" aria-labelledby="workspace-heading">
           <div className="sidebar-section-heading">
@@ -223,7 +214,7 @@ export function Sidebar({
                   {expanded ? (
                     <div className="sidebar-session-list">
                       <button className="sidebar-new-session-row" type="button" onClick={() => onNewSession(path)}>
-                        <Plus size={11} />
+                        <Plus size={13} />
                         New thread
                       </button>
                       {unlistedRuntimes.map((runtime) => {
@@ -297,6 +288,17 @@ export function Sidebar({
             })}
           </div>
         </section>
+
+        <nav className="sidebar-actions sidebar-actions-bottom" aria-label="App actions">
+          <button type="button" onClick={onRestart} disabled={connectionStatus !== "open"}>
+            <ArrowsClockwise size={16} />
+            {activeRuntimeId ? "Restart Pi" : "Start Pi"}
+          </button>
+          <button type="button" onClick={onOpenSettings}>
+            <GearSix size={16} />
+            Settings
+          </button>
+        </nav>
       </aside>
     </>
   );

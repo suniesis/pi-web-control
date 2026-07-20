@@ -1,8 +1,9 @@
-import { ArrowDown, CircleNotch, List, Play, WarningCircle, X } from "@phosphor-icons/react";
+import { ArrowDown, CircleNotch, Play, SidebarSimple, SpinnerGap, WarningCircle, X } from "@phosphor-icons/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Composer } from "./components/Composer";
 import { ExtensionDialog } from "./components/ExtensionDialog";
 import { MessageView } from "./components/MessageView";
+import { PiLogo } from "./components/PiLogo";
 import { SettingsDialog } from "./components/SettingsDialog";
 import { Sidebar } from "./components/Sidebar";
 import { ToolRunView } from "./components/ToolRunView";
@@ -807,6 +808,7 @@ export function App() {
   }
 
   const canSend = connectionStatus === "open" && authenticated && bridge.status === "running";
+  const showEmptyState = timeline.length === 0 && !awaitingAssistant;
   const contextPercent = stats?.contextUsage?.percent;
   const contextLabel = contextPercent === null || contextPercent === undefined
     ? "Pending"
@@ -864,7 +866,7 @@ export function App() {
             aria-controls="app-sidebar"
             aria-expanded={!desktopSidebarHidden && sidebarOpen}
           >
-            <List size={20} />
+            <SidebarSimple size={20} />
           </button>
           <div className="topbar-usage" aria-label="Session usage">
             <div className="topbar-context">
@@ -892,7 +894,7 @@ export function App() {
         ) : null}
 
         <div className="feed-shell">
-          <div className="feed" ref={feedRef} onScroll={updateScrollToBottom}>
+          <div className={`feed ${showEmptyState ? "feed-empty" : ""}`} ref={feedRef} onScroll={updateScrollToBottom}>
           {pendingSession ? (
             <div className="session-opening-status" role="status">
               <CircleNotch className="spin" size={15} />
@@ -900,7 +902,7 @@ export function App() {
             </div>
           ) : null}
           <div className="feed-inner">
-            {timeline.length === 0 && !awaitingAssistant ? (
+            {showEmptyState ? (
               <section className="empty-state">
                 <h1>Let&apos;s lock in.</h1>
                 <p>What are we doing here?</p>
@@ -929,14 +931,14 @@ export function App() {
             )}
             {awaitingAssistant ? (
               <div className="working-status" role="status" aria-live="polite">
-                <CircleNotch className="spin" size={14} />
+                <SpinnerGap className="spin" size={14} />
                 <span>Working…</span>
               </div>
             ) : null}
             </div>
           </div>
 
-          {showScrollToBottom ? (
+          {showScrollToBottom && !showEmptyState ? (
             <button className="scroll-to-bottom" type="button" onClick={scrollToBottom} aria-label="Scroll to latest message">
               <ArrowDown size={15} weight="bold" />
             </button>
@@ -979,7 +981,9 @@ export function App() {
       {connectionStatus !== "open" ? (
         <div className="connection-overlay" role="status">
           <div className="connection-card">
-            <div className="connection-pulse" aria-hidden="true" />
+            <div className="bridge-logo-loader" aria-hidden="true">
+              <PiLogo />
+            </div>
             <h2>{connectionStatus === "connecting" ? "Connecting to the bridge" : "Bridge disconnected"}</h2>
             <p>The UI will reconnect automatically. You can also retry now.</p>
             <button className="secondary-button" type="button" onClick={reconnect}>Reconnect</button>
@@ -990,7 +994,9 @@ export function App() {
       {authRequired && !authenticated ? (
         <div className="auth-overlay">
           <form className="auth-card" onSubmit={authenticate}>
-            <div className="auth-mark">π</div>
+            <div className="auth-mark">
+              <PiLogo />
+            </div>
             <h1>Unlock Pi Control</h1>
             <p>Enter the access token configured on this machine.</p>
             <label htmlFor="access-token">Access token</label>
